@@ -5,13 +5,23 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": ["--no-server"]
+        },
+        {
             "name": "Python: Bokeh serve",
             "type": "python",
             "request": "launch",
+            "console": "integratedTerminal",
             "module": "bokeh",
             "args": [
-                "serve", "--show", "sandbox.py"
-               // "--no-debugger"
+                "serve",
+                "--show",
+                "sandbox.py"
             ]
         },
     ]
