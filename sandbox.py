@@ -19,7 +19,7 @@ y = f_gaussian(x)
 
 
 # create a new plot with a title and axis labels
-p = figure(title="Basic Gaussian distribution", x_axis_label='x', y_axis_label='f(x)')
+p = figure(title="Gaussian pdf", x_axis_label='x', y_axis_label='f(x)', sizing_mode='stretch_both')
 # add a line renderer with legend and line thickness to the plot
 line_r = p.line(x, y, line_width=2)
 varea_r = p.varea(x=x, y1=0, y2=y, fill_color="#03e3fc", alpha = 0.5)
@@ -59,7 +59,7 @@ def serve():
     mean_slider.on_change('value', mean_slider_callback)
 
     # put the button and plot in a layout and add to the document
-    curdoc().add_root(column(p, mean_slider, sigma_slider))
+    curdoc().add_root(column(p, mean_slider, sigma_slider, sizing_mode="scale_width"))
 
 
 # show the results
