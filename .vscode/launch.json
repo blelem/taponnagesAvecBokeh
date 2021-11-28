@@ -21,7 +21,8 @@
             "args": [
                 "serve",
                 "--show",
-                "sandbox.py"
+               "acf.py",
+               //"gaussian.py"
             ]
         },
     ]

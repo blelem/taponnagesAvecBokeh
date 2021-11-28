@@ -58,7 +58,7 @@ def serve():
     mean_slider = Slider(title="Mean", start=0, end=10, value=mean, step=.1)
     mean_slider.on_change('value', mean_slider_callback)
 
-    # put the button and plot in a layout and add to the document
+    # put the plot and sliders in a layout and add to the document
     curdoc().add_root(column(p, mean_slider, sigma_slider))
 
 
