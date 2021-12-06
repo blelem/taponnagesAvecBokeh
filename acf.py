@@ -11,7 +11,7 @@ args = parser.parse_args()
 
 # prepare some data
 Tp = 10E-3      #[s] Integration time
-f_max = 50      #[Hz] acf window, max frequency 
+f_max = 100     #[Hz] acf window, max frequency 
 c_max = 1.5     #[chip] acf window, max code delay
 freq_linspace = np.linspace(-f_max, f_max, 250)
 code_linspace = np.linspace(-c_max, c_max, 250)
@@ -57,11 +57,11 @@ code_idx = find_nearest(selected_code, code_linspace)
 
 freq_p = figure(title=f'freq slice @ code_delay={selected_code} chips',x_axis_label='delta f [Hz]', y_axis_label='', plot_height=300)
 freq_p_glyph = freq_p.line(freq_linspace, auto_correlation[code_idx,:], line_color='#eb34c9',line_dash='dashed')
-freq_p_circle = freq_p.circle([selected_freq], auto_correlation[freq_idx,code_idx], color='black')
+freq_p_circle = freq_p.circle([selected_freq], [auto_correlation[code_idx, freq_idx]], color='black')
 
 code_p = figure(title=f'code slice @ freq={selected_freq} Hz',x_axis_label='code delay [chip]', y_axis_label='', plot_height=300)
 code_p_glyph = code_p.line(code_linspace, auto_correlation[:, freq_idx],line_color='black',line_dash='dashed')
-code_p_circle = code_p.circle([selected_code], auto_correlation[freq_idx,code_idx], color='#eb34c9')
+code_p_circle = code_p.circle([selected_code], [auto_correlation[code_idx, freq_idx]], color='#eb34c9')
 
 # Serve contains the callbacks for interractivity
 def serve():
