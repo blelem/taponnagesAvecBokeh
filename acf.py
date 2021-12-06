@@ -55,13 +55,13 @@ p.add_layout(selected_code_delay_span)
 freq_idx = find_nearest(selected_freq, freq_linspace)
 code_idx = find_nearest(selected_code, code_linspace)
 
-freq_p = figure(title=f'freq slice @ code_delay={selected_code} chips',x_axis_label='delta f [Hz]', y_axis_label='', plot_height=300)
+freq_p = figure(title=f'freq slice @ code_delay: {selected_code} chips',x_axis_label='delta f [Hz]', y_axis_label='', plot_height=300)
 freq_p_glyph = freq_p.line(freq_linspace, auto_correlation[code_idx,:], line_color='#eb34c9',line_dash='dashed')
-freq_p_circle = freq_p.circle([selected_freq], [auto_correlation[code_idx, freq_idx]], color='black')
+freq_p_circle = freq_p.circle([selected_freq], [auto_correlation[code_idx, freq_idx]], color='black', size=10)
 
-code_p = figure(title=f'code slice @ freq={selected_freq} Hz',x_axis_label='code delay [chip]', y_axis_label='', plot_height=300)
+code_p = figure(title=f'code slice @ freq :{selected_freq} Hz',x_axis_label='code delay [chip]', y_axis_label='', plot_height=300)
 code_p_glyph = code_p.line(code_linspace, auto_correlation[:, freq_idx],line_color='black',line_dash='dashed')
-code_p_circle = code_p.circle([selected_code], [auto_correlation[code_idx, freq_idx]], color='#eb34c9')
+code_p_circle = code_p.circle([selected_code], [auto_correlation[code_idx, freq_idx]], color='#eb34c9', size=10)
 
 # Serve contains the callbacks for interractivity
 def serve():
@@ -73,37 +73,47 @@ def serve():
     code_circle_ds = code_p_circle.data_source
 
     def refresh_plot():
-        # # BEST PRACTICE --- update .data in one step with a new dict
+        #ACF plot
         new_data = dict()
-        new_data['image'] = [acf(xx,yy,Tp)]
+        new_data['image'] = [auto_correlation]
         acf_ds.data = new_data
 
+        code_idx = find_nearest(selected_code, code_linspace)
+        freq_idx = find_nearest(selected_freq, freq_linspace)
+
+
+        #Frequency slice plot
+        freq_p.title.text = f'freq slice @ code_delay:{selected_code:.2f} chips'
+
         new_data = dict()
-        new_data['x'] = xx[0,:]
-        new_data['y'] = acf(xx[0,:], selected_code, Tp)
+        new_data['x'] = freq_linspace
+        new_data['y'] = auto_correlation[code_idx, :]
         freq_ds.data = new_data
 
         new_data = dict()
         new_data['x'] = [selected_freq]
-        new_data['y'] = [acf(selected_freq, selected_code, Tp)]
+        new_data['y'] = [auto_correlation[code_idx, freq_idx]]
         freq_circle_ds.data = new_data
 
+        #Code slice plot
+        code_p.title.text = f'code slice @ freq :{selected_freq:.2f} Hz'
         new_data = dict()
-        new_data['x'] = yy[:,0]
-        new_data['y'] = acf(selected_freq,yy[:,0], Tp)
+        new_data['x'] = code_linspace
+        new_data['y'] = auto_correlation[:,freq_idx]
         code_ds.data = new_data
 
         new_data = dict()
         new_data['x'] = [selected_code]
-        new_data['y'] = [acf(selected_freq, selected_code, Tp)]
+        new_data['y'] = [auto_correlation[code_idx, freq_idx]]
         code_circle_ds.data = new_data
 
         selected_freq_span.location = selected_freq
         selected_code_delay_span.location = selected_code
 
     def Tp_slider_callback(attr, old, new):
-        global Tp
+        global Tp, auto_correlation
         Tp = new * 1E-3
+        auto_correlation = acf(xx,yy,Tp)
         refresh_plot()
 
     # Change the location of the crosshair
