@@ -10,14 +10,19 @@ parser.add_argument('--no-server', action='store_true',  help="do not start a se
 args = parser.parse_args()
 
 # prepare some data
-Tp = 100E-3     #[s] Integration time
-f_max = 3/Tp    #[Hz]The amplitude of the sinc is negligeable beyond 3 zero crossings
-c_max = 1.5     #[chip] Nothing of interest beyond code delay >1 chip
-freq = np.linspace(-f_max, f_max, 250)
-code = np.linspace(-c_max, c_max, 250)
-xx, yy = np.meshgrid(freq, code)
-selected_freq = 0
-selected_code = 0
+Tp = 10E-3      #[s] Integration time
+f_max = 50      #[Hz] acf window, max frequency 
+c_max = 1.5     #[chip] acf window, max code delay
+freq_linspace = np.linspace(-f_max, f_max, 250)
+code_linspace = np.linspace(-c_max, c_max, 250)
+xx, yy = np.meshgrid(freq_linspace, code_linspace)
+selected_freq = 20
+selected_code = 0.5
+
+# Find index of the element nearest to desired value
+def find_nearest(value, from_array):
+    idx = (np.abs(from_array-value)).argmin()
+    return idx
 
 @np.vectorize
 def triangle(tau):
@@ -31,11 +36,13 @@ def acf(xx, yy, Tp):
     return triangle(yy)*np.sinc(2*np.pi*xx*Tp/2)
 
 
+auto_correlation = acf(xx,yy,Tp)
+
 # Build the graph
-p = figure(title="ACF",x_axis_label='delta f [Hz]', y_axis_label='code delay [chips]')
+p = figure(title="ACF",x_axis_label='delta f from true signal [Hz]', y_axis_label='code delay from true signal [chips]')
 p.x_range.range_padding = p.y_range.range_padding = 0
 
-acf_glyph = p.image(image=[acf(xx,yy,Tp)], x=-f_max, y=-c_max, dw=2*f_max, dh=2*c_max, palette="Turbo256", level="image")
+acf_glyph = p.image(image=[auto_correlation], x=-f_max, y=-c_max, dw=2*f_max, dh=2*c_max, palette="Turbo256", level="image")
 p.grid.grid_line_width = 0.5
 p.toolbar.logo = None
 p.toolbar_location = None
@@ -45,13 +52,16 @@ p.add_layout(selected_freq_span)
 selected_code_delay_span = Span(location=selected_code, dimension='width', line_color='#eb34c9',line_dash='dashed', line_width=3)
 p.add_layout(selected_code_delay_span)
 
-freq_p = figure(title="freq slice",x_axis_label='delta f [Hz]', y_axis_label='', plot_height=300)
-freq_p_glyph = freq_p.line(xx[0], acf(xx[0], 0, Tp), line_color='#eb34c9',line_dash='dashed')
-freq_p_circle = freq_p.circle([selected_freq], [acf(selected_freq, selected_code, Tp)], color='black')
+freq_idx = find_nearest(selected_freq, freq_linspace)
+code_idx = find_nearest(selected_code, code_linspace)
 
-code_p = figure(title="code slice",x_axis_label='code delay [chip]', y_axis_label='', plot_height=300)
-code_p_glyph = code_p.line(yy[:,0], acf(0, yy[:,0], Tp),line_color='black',line_dash='dashed')
-code_p_circle = code_p.circle([selected_freq], [acf(selected_freq, selected_code, Tp)], color='#eb34c9')
+freq_p = figure(title=f'freq slice @ code_delay={selected_code} chips',x_axis_label='delta f [Hz]', y_axis_label='', plot_height=300)
+freq_p_glyph = freq_p.line(freq_linspace, auto_correlation[code_idx,:], line_color='#eb34c9',line_dash='dashed')
+freq_p_circle = freq_p.circle([selected_freq], auto_correlation[freq_idx,code_idx], color='black')
+
+code_p = figure(title=f'code slice @ freq={selected_freq} Hz',x_axis_label='code delay [chip]', y_axis_label='', plot_height=300)
+code_p_glyph = code_p.line(code_linspace, auto_correlation[:, freq_idx],line_color='black',line_dash='dashed')
+code_p_circle = code_p.circle([selected_code], auto_correlation[freq_idx,code_idx], color='#eb34c9')
 
 # Serve contains the callbacks for interractivity
 def serve():
