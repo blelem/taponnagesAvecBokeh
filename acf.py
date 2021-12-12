@@ -3,6 +3,7 @@ import argparse
 from bokeh.plotting import figure, show, curdoc
 from bokeh.layouts import column, row
 from bokeh.models import Slider, Span
+from bokeh.models.widgets.markups import Div
 from bokeh.events import Tap
 
 parser = argparse.ArgumentParser(description='Fooling around with bokeh')
@@ -19,6 +20,12 @@ xx, yy = np.meshgrid(freq_linspace, code_linspace)
 selected_freq = 20
 selected_code = 0.5
 
+mp_alpha = 1.0 #Strenght of the multipath
+mp_freq = 100 #[Hz]
+mp_code = 0.5 #[chip]
+mp_phase = np.pi #[rad]
+
+
 # Find index of the element nearest to desired value
 def find_nearest(value, from_array):
     idx = (np.abs(from_array-value)).argmin()
@@ -32,18 +39,22 @@ def triangle(tau):
     else: 
         return 1.0 - abs(tau)
 
-def acf(xx, yy, Tp):
+def acf(xx, yy, Tp, phase):
+    # Autocorrelation of a BPSK signal, according to eq. 2.23 in [1]
+
     # Note numpy's sinc is defined as sin(pi*x)/(x*pi)
     # We need to divide the sinc argument by pi, to get the same sinc definition as used in 2.23
-    #triangle(yy)*np.sinc( (2*pi*xx) * Tp/2 * 1/pi))
-    return triangle(yy)*np.sinc(xx*Tp)
+    # triangle(yy)*np.sinc( (2*pi*xx) * Tp/2 * 1/pi)) * i exp(i * phase)
+    
+    # [1] : Modeling and Simulating GNSS Signal Structures and Receivers, Jon Olafur Winkel
+    return triangle(yy)*np.sinc(xx*Tp) * + 1.0j * np.exp(1.0j*phase)
 
 
-def auto_correlation_fct (xx, yy, Tp, mp_alpha, mp_freq, mp_code):
-    mp_alpha=0
-    return acf(xx,yy,Tp) + mp_alpha * acf(xx-mp_freq, yy-mp_code, Tp)
+def auto_correlation_fct (xx, yy, Tp, mp_alpha, mp_freq, mp_code, mp_phase):
 
-auto_correlation = auto_correlation_fct(xx,yy,Tp, 1.0, 10.0, 0.5)
+    return np.abs(acf(xx,yy,Tp, 0) + mp_alpha * acf(xx-mp_freq, yy-mp_code, Tp, mp_phase))
+
+auto_correlation = auto_correlation_fct(xx,yy,Tp,  mp_alpha, mp_freq, mp_code, mp_phase)
 
 # Build the graph
 p = figure(title="ACF",x_axis_label='delta f from true signal [Hz]', y_axis_label='code delay from true signal [chips]')
@@ -120,7 +131,31 @@ def serve():
     def Tp_slider_callback(attr, old, new):
         global Tp, auto_correlation
         Tp = new * 1E-3
-        auto_correlation = auto_correlation_fct(xx, yy, Tp, 1.0, 10.0, 0.5)
+        auto_correlation = auto_correlation_fct(xx, yy, Tp, mp_alpha, mp_freq, mp_code, mp_phase)
+        refresh_plot()
+
+    def mp_alpha_slider_callback(attr, old, new):
+        global mp_alpha, auto_correlation
+        mp_alpha = new
+        auto_correlation = auto_correlation_fct(xx, yy, Tp, mp_alpha, mp_freq, mp_code, mp_phase)
+        refresh_plot()
+
+    def mp_freq_slider_callback(attr, old, new):
+        global mp_freq, auto_correlation
+        mp_freq = new
+        auto_correlation = auto_correlation_fct(xx, yy, Tp, mp_alpha, mp_freq, mp_code, mp_phase)
+        refresh_plot()
+
+    def mp_code_slider_callback(attr, old, new):
+        global mp_code, auto_correlation
+        mp_code = new
+        auto_correlation = auto_correlation_fct(xx, yy, Tp, mp_alpha, mp_freq, mp_code, mp_phase)
+        refresh_plot()
+
+    def mp_phase_slider_callback(attr, old, new):
+        global mp_phase, auto_correlation
+        mp_phase= new
+        auto_correlation = auto_correlation_fct(xx, yy, Tp, mp_alpha, mp_freq, mp_code, mp_phase)
         refresh_plot()
 
     # Change the location of the crosshair
@@ -129,14 +164,27 @@ def serve():
         selected_freq = float(event.x)
         selected_code = float(event.y)
         refresh_plot()
-
+        
     p.on_event(Tap, on_click_callback)
 
     Tp_slider = Slider(title="Integration time[ms]", start=10, end=100, value=Tp*1E3, step=.1)
     Tp_slider.on_change('value_throttled', Tp_slider_callback)
 
+    mp_alpha_slider = Slider(title="Strength", start=0, end=1.0, value=mp_alpha, step=0.01)
+    mp_alpha_slider.on_change('value_throttled', mp_alpha_slider_callback)
+    mp_freq_slider = Slider(title="Delta freq [Hz]", start=0, end=200, value=mp_freq, step=1)
+    mp_freq_slider.on_change('value_throttled', mp_freq_slider_callback)
+    mp_code_slider = Slider(title="Delta code [chips]", start=0, end=1.0, value=mp_code, step=0.1)
+    mp_code_slider.on_change('value_throttled', mp_code_slider_callback)
+    mp_phase_slider = Slider(title="Delta phase [rad]", start=0, end=2*np.pi, value=mp_phase, step = 0.01)
+    mp_phase_slider.on_change('value_throttled', mp_phase_slider_callback)
+
+    mp_title = Div(text='<h3 style="text-align: center">Multipath</h3>')
+    mp_panel = column(mp_title, mp_alpha_slider, mp_freq_slider, mp_code_slider, mp_phase_slider)
+    mp_panel.background = "beige"
+
     # put the button and plot in a layout and add to the document
-    curdoc().add_root(row(column( p, Tp_slider), column(freq_p, code_p)))
+    curdoc().add_root(row(column( p, Tp_slider, mp_panel), column(freq_p, code_p)))
 
 
 # show the results
