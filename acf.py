@@ -11,7 +11,7 @@ args = parser.parse_args()
 
 # prepare some data
 Tp = 10E-3      #[s] Integration time
-f_max = 100     #[Hz] acf window, max frequency 
+f_max = 150     #[Hz] acf window, max frequency 
 c_max = 1.5     #[chip] acf window, max code delay
 freq_linspace = np.linspace(-f_max, f_max, 250)
 code_linspace = np.linspace(-c_max, c_max, 250)
@@ -33,10 +33,17 @@ def triangle(tau):
         return 1.0 - abs(tau)
 
 def acf(xx, yy, Tp):
-    return triangle(yy)*np.sinc(2*np.pi*xx*Tp/2)
+    # Note numpy's sinc is defined as sin(pi*x)/(x*pi)
+    # We need to divide the sinc argument by pi, to get the same sinc definition as used in 2.23
+    #triangle(yy)*np.sinc( (2*pi*xx) * Tp/2 * 1/pi))
+    return triangle(yy)*np.sinc(xx*Tp)
 
 
-auto_correlation = acf(xx,yy,Tp)
+def auto_correlation_fct (xx, yy, Tp, mp_alpha, mp_freq, mp_code):
+    mp_alpha=0
+    return acf(xx,yy,Tp) + mp_alpha * acf(xx-mp_freq, yy-mp_code, Tp)
+
+auto_correlation = auto_correlation_fct(xx,yy,Tp, 1.0, 10.0, 0.5)
 
 # Build the graph
 p = figure(title="ACF",x_axis_label='delta f from true signal [Hz]', y_axis_label='code delay from true signal [chips]')
@@ -113,7 +120,7 @@ def serve():
     def Tp_slider_callback(attr, old, new):
         global Tp, auto_correlation
         Tp = new * 1E-3
-        auto_correlation = acf(xx,yy,Tp)
+        auto_correlation = auto_correlation_fct(xx, yy, Tp, 1.0, 10.0, 0.5)
         refresh_plot()
 
     # Change the location of the crosshair
