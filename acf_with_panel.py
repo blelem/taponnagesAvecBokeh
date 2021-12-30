@@ -2,40 +2,30 @@ import numpy as np
 import panel as pn
 import param
 import panel.widgets as pnw
-from bokeh.plotting import figure, show, curdoc
-from bokeh.layouts import column, row
-from bokeh.models import Slider, Span
-from bokeh.models.widgets.markups import Div
+from bokeh.plotting import figure
+from bokeh.models import Span
 from bokeh.events import Tap
 
-# By inheriting from a Param class, an event will be raised when the value of the parameter is changed. The event can be bound as a dependency
-class Crosshair(param.Parameterized):
-    position = param.Parameter( (0,0),  doc="A tuple (Frequency[Hz], Code phase[chips]) that defines the current position of the crosshair")
-
-crosshair = Crosshair(position=(20.0,0.5))
-
-    
-Tp = 10E-3      #[s] Integration time
+# Basic parameters
 f_max = 150     #[Hz] acf window, max frequency 
 c_max = 1.5     #[chip] acf window, max code delay
+tp = 10         #[ms] Integration time
+mp_alpha = 1.0  # Strength of the multipath
+mp_freq = 100   # Multipath delta freq [Hz]
+mp_code = 0.5   # Multipath delta code [chip]
+mp_phase = np.pi #Multipath phase [rad]
+crosshair_freq = 0
+crosshair_code = 0
+
+# The mesh is never updated after initial creation
 freq_linspace = np.linspace(-f_max, f_max, 250)
 code_linspace = np.linspace(-c_max, c_max, 250)
 xx, yy = np.meshgrid(freq_linspace, code_linspace)
 
-
-mp_alpha = 1.0 #Strength of the multipath
-mp_freq = 100 #[Hz]
-mp_code = 0.5 #[chip]
-mp_phase = np.pi #[rad]
-
-# Find index of the element nearest to desired value
-def find_nearest(value, from_array):
-    idx = (np.abs(from_array-value)).argmin()
-    return idx
+# --- ACF simulation ---
 
 @np.vectorize
 def triangle(tau):
-    
     if (abs(tau)>1):
         return 0.0
     else: 
@@ -53,13 +43,15 @@ def acf(xx, yy, Tp, phase):
 
 
 def auto_correlation_fct (xx, yy, Tp, mp_alpha, mp_freq, mp_code, mp_phase):
-
     return np.abs(acf(xx,yy,Tp, 0) + mp_alpha * acf(xx-mp_freq, yy-mp_code, Tp, mp_phase))
-
-
-def plot_acf(tp, mp_alpha, mp_freq, mp_code, mp_phase, crosshair):
     
-    auto_correlation = auto_correlation_fct(xx, yy, tp*1E-3,  mp_alpha, mp_freq, mp_code, mp_phase)
+def update_acf(tp, mp_alpha, mp_freq, mp_code, mp_phase):
+    return auto_correlation_fct(xx, yy, tp*1E-3, mp_alpha, mp_freq, mp_code, mp_phase)
+
+# --- ACF surface plot ---
+
+def plot_acf(auto_correlation, crosshair):
+    
     p = figure(title="ACF",x_axis_label='delta f from true signal [Hz]', y_axis_label='code delay from true signal [chips]')
     p.x_range.range_padding = p.y_range.range_padding = 0
 
@@ -73,7 +65,7 @@ def plot_acf(tp, mp_alpha, mp_freq, mp_code, mp_phase, crosshair):
     selected_code_delay_span = Span(location=selected_code, dimension='width', line_color='#eb34c9',line_dash='dashed', line_width=3)
     p.add_layout(selected_code_delay_span)
 
-    # Catch click events to change the location of the crosshair
+    # Catch click events on the plot to change the location of the crosshair
     def on_click_callback(event):
         global crosshair
         crosshair.position = (float(event.x), float(event.y))
@@ -81,12 +73,45 @@ def plot_acf(tp, mp_alpha, mp_freq, mp_code, mp_phase, crosshair):
     p.on_event(Tap, on_click_callback)
     return p
 
+# --- The crosshair functionality ---
+
+# Find index of the element nearest to desired value
+def find_nearest(value, from_array):
+    idx = (np.abs(from_array-value)).argmin()
+    return idx
+
+def nearest_indexes(tuple):
+    return (find_nearest(tuple[0], freq_linspace), find_nearest(tuple[1], code_linspace))
+
+# By inheriting from a Param class, an event will be raised when the value of the parameter is changed. The event can be bound as a dependency
+class Crosshair(param.Parameterized):
+    position = param.Parameter( (0,0),  doc="A tuple (Frequency[Hz], Code phase[chips]) that defines the current position of the crosshair")
+    indexes = param.Parameter( nearest_indexes( (0,0)),  doc="A tuple (Frequency idx, Code phase idx) that defines the current position of the crosshair, as an array index in the mesh")
+
+    @param.depends('position', watch=True)
+    def _update_indexes(self):
+        self.indexes = nearest_indexes(self.position)
 
 
+crosshair = Crosshair()
+crosshair.position=(crosshair_freq, crosshair_code)
 
+# --- The widgets ---
+tp_slider  = pnw.FloatSlider(name='Integration time[ms]', value=tp, start=10, end=100, step=1)
+mp_alpha_slider = pnw.FloatSlider(name="Strength", value=mp_alpha, start=0, end=1.0, step=0.01)
+mp_freq_slider = pnw.FloatSlider(name="Delta freq [Hz]", value=mp_freq, start=0, end=200,  step=1)
+mp_code_slider = pnw.FloatSlider(name="Delta code [chips]", value=mp_code, start=0, end=1.0, step=0.1)
+mp_phase_slider = pnw.FloatSlider(name="Delta phase [rad]", start=0, end=2*np.pi, value=mp_phase, step = 0.01)
 
-# freq_idx = find_nearest(selected_freq, freq_linspace)
-# code_idx = find_nearest(selected_code, code_linspace)
+widgets   = pn.Column("<br>\n# Parameters", tp_slider, mp_alpha_slider, mp_freq_slider, mp_code_slider, mp_phase_slider)
+
+# --- Bindings ---
+# the autocorrelation depends on tp, mp_alpha, mp_freq, mp_code, mp_phase
+reactive_acf = pn.bind( update_acf, tp=tp_slider, mp_alpha=mp_alpha_slider, mp_freq=mp_freq_slider, mp_code=mp_code_slider, mp_phase=mp_phase_slider)
+reactive_plot_acf = pn.bind( plot_acf, reactive_acf, crosshair = crosshair.param.position)
+
+acf_plot = pn.Row(reactive_plot_acf, widgets)
+acf_plot.show()
 
 # freq_p = figure(title=f'freq slice @ code_delay: {selected_code} chips',x_axis_label='delta f [Hz]', y_axis_label='', plot_height=300)
 # freq_p_glyph = freq_p.line(freq_linspace, auto_correlation[code_idx,:], line_color='#eb34c9',line_dash='dashed')
@@ -208,11 +233,3 @@ def plot_acf(tp, mp_alpha, mp_freq, mp_code, mp_phase, crosshair):
 # else:
 #     serve()
 
-tp_slider  = pnw.FloatSlider(name='Integration time[ms]', value=20, start=10, end=100, step=1)
-widgets   = pn.Column("<br>\n# Parameters", tp_slider)
-
-reactive_plot_acf = pn.bind( plot_acf, tp=tp_slider, mp_alpha=0.0, mp_freq=0.0, mp_code=0.0, mp_phase=0.0, 
-     crosshair = crosshair.param.position)
-
-acf_plot = pn.Row(reactive_plot_acf, widgets)
-acf_plot.show()
