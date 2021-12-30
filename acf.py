@@ -20,7 +20,7 @@ xx, yy = np.meshgrid(freq_linspace, code_linspace)
 selected_freq = 20
 selected_code = 0.5
 
-mp_alpha = 1.0 #Strenght of the multipath
+mp_alpha = 1.0 #Strength of the multipath
 mp_freq = 100 #[Hz]
 mp_code = 0.5 #[chip]
 mp_phase = np.pi #[rad]
