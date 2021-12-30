@@ -52,7 +52,7 @@ def update_acf(tp, mp_alpha, mp_freq, mp_code, mp_phase):
 
 def plot_acf(auto_correlation, crosshair):
     
-    p = figure(title="ACF",x_axis_label='delta f from true signal [Hz]', y_axis_label='code delay from true signal [chips]')
+    p = figure(title="ACF",x_axis_label='delta f from true signal [Hz]', y_axis_label='code delay from true signal [chips]', plot_height=500)
     p.x_range.range_padding = p.y_range.range_padding = 0
 
     p.image(image=[auto_correlation], x=-f_max, y=-c_max, dw=2*f_max, dh=2*c_max, palette="Turbo256", level="image")
@@ -78,9 +78,12 @@ def plot_freq_slice(auto_correlation, crosshair):
     selected_code = crosshair['code']
     code_idx = crosshair['code_idx']
     freq_idx = crosshair['freq_idx']
-    freq_p = figure(title=f'freq slice @ code_delay: {selected_code} chips',x_axis_label='delta f [Hz]', y_axis_label='', plot_height=300)
+    freq_p = figure(title=f'freq slice @ code_delay: {selected_code} chips',x_axis_label='', y_axis_label='magnitude', plot_height=200)
     freq_p.line(freq_linspace, auto_correlation[code_idx,:], line_color='#eb34c9',line_dash='dashed')
     freq_p.circle([selected_freq], [auto_correlation[code_idx, freq_idx]], color='black', size=10)
+    freq_p.x_range.range_padding = 0
+    freq_p.toolbar.logo = None
+    freq_p.toolbar_location = None
     return freq_p
 
 def plot_code_slice(auto_correlation, crosshair):
@@ -88,9 +91,12 @@ def plot_code_slice(auto_correlation, crosshair):
     selected_code = crosshair['code']
     code_idx = crosshair['code_idx']
     freq_idx = crosshair['freq_idx']
-    code_p = figure(title=f'code slice @ freq :{selected_freq} Hz',x_axis_label='code delay [chip]', y_axis_label='', plot_height=300)
-    code_p.line(code_linspace, auto_correlation[:, freq_idx],line_color='black',line_dash='dashed')
-    code_p.circle([selected_code], [auto_correlation[code_idx, freq_idx]], color='#eb34c9', size=10)
+    code_p = figure(title=f'code slice @ freq :{selected_freq} Hz',x_axis_label='magnitude', y_axis_label='', plot_height=500, plot_width=200)
+    code_p.line( auto_correlation[:, freq_idx], code_linspace, line_color='black',line_dash='dashed')
+    code_p.circle([auto_correlation[code_idx, freq_idx]], [selected_code], color='#eb34c9', size=10)
+    code_p.y_range.range_padding = 0
+    code_p.toolbar.logo = None
+    code_p.toolbar_location = None
     return code_p
 
 # --- The crosshair functionality ---
@@ -130,5 +136,5 @@ reactive_acf = pn.bind( update_acf, tp=tp_slider, mp_alpha=mp_alpha_slider, mp_f
 reactive_plot_acf = pn.bind( plot_acf, reactive_acf, crosshair = crosshair.param.position)
 reactive_plot_freq_slice = pn.bind (plot_freq_slice, auto_correlation = reactive_acf, crosshair = crosshair.param.position)
 reactive_plot_code_slice = pn.bind (plot_code_slice, auto_correlation = reactive_acf, crosshair = crosshair.param.position)
-acf_plot = pn.Row(widgets, reactive_plot_acf, pn.Column(reactive_plot_freq_slice, reactive_plot_code_slice))
+acf_plot = pn.Row(widgets, pn.Column(pn.Row(reactive_plot_acf,reactive_plot_code_slice ), reactive_plot_freq_slice) )
 acf_plot.show()
