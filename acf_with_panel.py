@@ -7,8 +7,8 @@ import param
 from bokeh.plotting import figure
 from bokeh.models import Span
 from bokeh.events import Tap
-from templates import BootstrapAcfTheme
 from panel.template.bootstrap import BootstrapTemplate
+
 
 # Basic parameters
 f_max = 150     #[Hz] acf window, max frequency 
@@ -145,7 +145,9 @@ reactive_plot_acf = pn.bind( plot_acf, reactive_acf, crosshair = crosshair.param
 reactive_plot_freq_slice = pn.bind (plot_freq_slice, auto_correlation = reactive_acf, crosshair = crosshair.param.position)
 reactive_plot_code_slice = pn.bind (plot_code_slice, auto_correlation = reactive_acf, crosshair = crosshair.param.position)
 
-bootstrap = BootstrapTemplate(title='Autocorrelation function', theme=BootstrapAcfTheme)
+# --- The panels ---
+bootstrap = BootstrapTemplate(title='Autocorrelation function')
+bootstrap.config.css_files.append( 'assets/bootstrap-acf.css')
 mp_title = Div(text='<h4 style="text-align: center">Multipath</h4>')
 mp_panel = Column(mp_title, mp_alpha_slider, mp_freq_slider, mp_code_slider, mp_phase_slider)
 mp_panel.css_classes = ["multipath-panel"]
@@ -156,4 +158,4 @@ bootstrap.sidebar.append(mp_panel)
 bootstrap.main.append(
     pn.Column(pn.Row(reactive_plot_acf,reactive_plot_code_slice ), reactive_plot_freq_slice) 
 )
-bootstrap.show()
+bootstrap.show(static_dirs={'assets': './assets'})
