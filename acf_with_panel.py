@@ -135,7 +135,12 @@ mp_code_slider = pnw.FloatSlider(name="Delta code [chips]", value=mp_code, start
 mp_phase_slider = pnw.FloatSlider(name="Delta phase [rad]", start=0, end=2*np.pi, value=mp_phase, step = 0.01, margin=(0, 15, 30, 10))
 
 # --- Bindings ---
-reactive_acf = pn.bind( update_acf, tp=tp_slider, mp_alpha=mp_alpha_slider, mp_freq=mp_freq_slider, mp_code=mp_code_slider, mp_phase=mp_phase_slider)
+reactive_acf = pn.bind( update_acf,
+    tp=tp_slider.param.value_throttled,
+    mp_alpha=mp_alpha_slider.param.value_throttled,
+    mp_freq=mp_freq_slider.param.value_throttled, 
+    mp_code=mp_code_slider.param.value_throttled,
+    mp_phase=mp_phase_slider.param.value_throttled)
 reactive_plot_acf = pn.bind( plot_acf, reactive_acf, crosshair = crosshair.param.position)
 reactive_plot_freq_slice = pn.bind (plot_freq_slice, auto_correlation = reactive_acf, crosshair = crosshair.param.position)
 reactive_plot_code_slice = pn.bind (plot_code_slice, auto_correlation = reactive_acf, crosshair = crosshair.param.position)
