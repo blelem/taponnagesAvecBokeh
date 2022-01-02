@@ -1,10 +1,14 @@
+from bokeh.models.widgets.markups import Div
 import numpy as np
 import panel as pn
-import param
+from panel.layout.base import Column
 import panel.widgets as pnw
+import param
 from bokeh.plotting import figure
 from bokeh.models import Span
 from bokeh.events import Tap
+from templates import BootstrapAcfTheme
+from panel.template.bootstrap import BootstrapTemplate
 
 # Basic parameters
 f_max = 150     #[Hz] acf window, max frequency 
@@ -21,6 +25,7 @@ crosshair_code = 0
 freq_linspace = np.linspace(-f_max, f_max, 250)
 code_linspace = np.linspace(-c_max, c_max, 250)
 xx, yy = np.meshgrid(freq_linspace, code_linspace)
+
 
 # --- ACF simulation ---
 
@@ -124,17 +129,26 @@ crosshair.update_position(crosshair_freq, crosshair_code)
 
 # --- The widgets ---
 tp_slider  = pnw.FloatSlider(name='Integration time[ms]', value=tp, start=10, end=100, step=1)
-mp_alpha_slider = pnw.FloatSlider(name="Strength", value=mp_alpha, start=0, end=1.0, step=0.01)
-mp_freq_slider = pnw.FloatSlider(name="Delta freq [Hz]", value=mp_freq, start=0, end=200,  step=1)
-mp_code_slider = pnw.FloatSlider(name="Delta code [chips]", value=mp_code, start=0, end=1.0, step=0.1)
-mp_phase_slider = pnw.FloatSlider(name="Delta phase [rad]", start=0, end=2*np.pi, value=mp_phase, step = 0.01)
-
-widgets   = pn.Column("<br>\n# Parameters", tp_slider, mp_alpha_slider, mp_freq_slider, mp_code_slider, mp_phase_slider)
+mp_alpha_slider = pnw.FloatSlider(name="Strength", value=mp_alpha, start=0, end=1.0, step=0.01, margin=(0, 15, 15, 10))
+mp_freq_slider = pnw.FloatSlider(name="Delta freq [Hz]", value=mp_freq, start=0, end=200,  step=1, margin=(0, 15, 15, 10))
+mp_code_slider = pnw.FloatSlider(name="Delta code [chips]", value=mp_code, start=0, end=1.0, step=0.1, margin=(0, 15, 15, 10))
+mp_phase_slider = pnw.FloatSlider(name="Delta phase [rad]", start=0, end=2*np.pi, value=mp_phase, step = 0.01, margin=(0, 15, 30, 10))
 
 # --- Bindings ---
 reactive_acf = pn.bind( update_acf, tp=tp_slider, mp_alpha=mp_alpha_slider, mp_freq=mp_freq_slider, mp_code=mp_code_slider, mp_phase=mp_phase_slider)
 reactive_plot_acf = pn.bind( plot_acf, reactive_acf, crosshair = crosshair.param.position)
 reactive_plot_freq_slice = pn.bind (plot_freq_slice, auto_correlation = reactive_acf, crosshair = crosshair.param.position)
 reactive_plot_code_slice = pn.bind (plot_code_slice, auto_correlation = reactive_acf, crosshair = crosshair.param.position)
-acf_plot = pn.Row(widgets, pn.Column(pn.Row(reactive_plot_acf,reactive_plot_code_slice ), reactive_plot_freq_slice) )
-acf_plot.show()
+
+bootstrap = BootstrapTemplate(title='Autocorrelation function', theme=BootstrapAcfTheme)
+mp_title = Div(text='<h4 style="text-align: center">Multipath</h4>')
+mp_panel = Column(mp_title, mp_alpha_slider, mp_freq_slider, mp_code_slider, mp_phase_slider)
+mp_panel.css_classes = ["multipath-panel"]
+
+bootstrap.sidebar.append(tp_slider)
+bootstrap.sidebar.append(mp_panel) 
+
+bootstrap.main.append(
+    pn.Column(pn.Row(reactive_plot_acf,reactive_plot_code_slice ), reactive_plot_freq_slice) 
+)
+bootstrap.show()
